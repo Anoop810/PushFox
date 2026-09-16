@@ -285,7 +285,16 @@ export class OpenRouterProvider implements LLMProvider {
     }
     if (request.tools?.length) {
       body.tools = toOpenAITools(request.tools);
-      body.tool_choice = "auto";
+      if (request.toolChoice === undefined || request.toolChoice === "auto") {
+        body.tool_choice = "auto";
+      } else if (request.toolChoice === "required") {
+        body.tool_choice = "required";
+      } else {
+        body.tool_choice = {
+          type: "function",
+          function: { name: request.toolChoice.name },
+        };
+      }
     }
 
     const data = await this.postChatCompletion(body);

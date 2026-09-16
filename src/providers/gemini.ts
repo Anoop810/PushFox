@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, FunctionCallingConfigMode } from "@google/genai";
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import type {
   ChatRequest,
@@ -407,6 +407,20 @@ export class GeminiProvider implements LLMProvider {
                   functionDeclarations: toFunctionDeclarations(request.tools),
                 },
               ],
+              ...(request.toolChoice && request.toolChoice !== "auto"
+                ? {
+                    toolConfig: {
+                      functionCallingConfig: {
+                        mode: FunctionCallingConfigMode.ANY,
+                        ...(typeof request.toolChoice === "object"
+                          ? {
+                              allowedFunctionNames: [request.toolChoice.name],
+                            }
+                          : {}),
+                      },
+                    },
+                  }
+                : {}),
             }
           : {}),
       },
