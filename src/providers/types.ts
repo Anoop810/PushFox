@@ -27,10 +27,16 @@ export type ToolDefinition = {
   parameters: Record<string, unknown>;
 };
 
+export type ToolChoice =
+  | "auto"
+  | "required"
+  | { type: "function"; name: string };
+
 export type ChatRequest = {
   model: string;
   messages: LLMMessage[];
   tools?: ToolDefinition[];
+  toolChoice?: ToolChoice;
   temperature?: number;
   maxTokens?: number;
 };

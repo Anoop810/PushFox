@@ -4,7 +4,12 @@ import {
   type ReviewResult,
   type Severity,
 } from "../review/findings.js";
-import type { LLMProvider, LLMMessage } from "../providers/types.js";
+import type {
+  ChatRequest,
+  LLMProvider,
+  LLMMessage,
+  ToolDefinition,
+} from "../providers/types.js";
 import type { StaticPack } from "../static-pack/schema.js";
 import {
   createToolRegistry,
@@ -14,6 +19,7 @@ import type { ToolContext } from "../tools/types.js";
 import {
   SYSTEM_REVIEWER_INSTRUCTIONS,
   buildUserKickoffMessage,
+  buildSubmitNudgeMessage,
   wrapToolOutput,
 } from "./prompts.js";
 
@@ -41,6 +47,11 @@ const EMPTY_SAFE_RESULT = (reason: string): ReviewResult => ({
   confidence: "low",
   investigatedFiles: [],
 });
+
+const SUBMIT_TOOL_NAME = "submit_review";
+
+const submitOnlyTools = (tools: ToolDefinition[]): ToolDefinition[] =>
+  tools.filter((tool) => tool.name === SUBMIT_TOOL_NAME);
 
 export const parseSubmitReviewArgs = (
   rawArgs: string,
@@ -122,6 +133,7 @@ export class AgentLoop {
 
     const registry = createToolRegistry();
     const tools = getToolDefinitions();
+    const submitTools = submitOnlyTools(tools);
 
     // Bound the pack sent to the model — keep structure but trim huge surrounding code
     const packForModel = {
@@ -146,7 +158,10 @@ export class AgentLoop {
       { role: "system", content: SYSTEM_REVIEWER_INSTRUCTIONS },
       {
         role: "user",
-        content: buildUserKickoffMessage(JSON.stringify(packForModel, null, 2)),
+        content: buildUserKickoffMessage(
+          JSON.stringify(packForModel, null, 2),
+          maxIterations,
+        ),
       },
     ];
 
@@ -155,10 +170,22 @@ export class AgentLoop {
       iterations += 1;
       onEvent?.({ type: "iteration", iteration: iterations });
 
+      const remainingIncludingThis = maxIterations - iterations + 1;
+      const forceSubmit = remainingIncludingThis <= 1;
+      if (remainingIncludingThis <= 2) {
+        messages.push({
+          role: "user",
+          content: buildSubmitNudgeMessage(remainingIncludingThis),
+        });
+      }
+
       const response = await provider.chat({
         model,
         messages,
-        tools,
+        tools: forceSubmit ? submitTools : tools,
+        toolChoice: forceSubmit
+          ? { type: "function", name: SUBMIT_TOOL_NAME }
+          : "auto",
         temperature: 0.1,
       });
 
@@ -177,6 +204,9 @@ export class AgentLoop {
             onEvent?.({ type: "completed", result: parsed });
             return parsed;
           }
+        }
+        if (forceSubmit) {
+          break;
         }
         onEvent?.({
           type: "forced_stop",
@@ -201,13 +231,33 @@ export class AgentLoop {
           arguments: call.arguments,
         });
 
-        if (call.name === "submit_review") {
+        if (call.name === SUBMIT_TOOL_NAME) {
           const result = parseSubmitReviewArgs(
             call.arguments,
             severityThreshold,
           );
           onEvent?.({ type: "completed", result });
           return result;
+        }
+
+        if (forceSubmit) {
+          // Last turn should only submit; treat other tools as a soft miss.
+          messages.push({
+            role: "tool",
+            toolCallId: call.id,
+            name: call.name,
+            content: wrapToolOutput(
+              call.name,
+              "Investigation tools are disabled on the final turn. Call submit_review.",
+            ),
+          });
+          onEvent?.({
+            type: "tool_result",
+            name: call.name,
+            ok: false,
+            truncated: false,
+          });
+          continue;
         }
 
         const tool = registry.get(call.name);
@@ -260,11 +310,76 @@ export class AgentLoop {
       reason: `reached max iterations (${maxIterations})`,
     });
 
-    // Ask once more without tools to force a final JSON review — still fail safe
+    return this.forceFinalSubmit({
+      provider,
+      model,
+      messages,
+      tools: submitTools,
+      severityThreshold,
+      onEvent,
+    });
+  }
+
+  private async forceFinalSubmit(input: {
+    provider: LLMProvider;
+    model: string;
+    messages: LLMMessage[];
+    tools: ToolDefinition[];
+    severityThreshold: Severity;
+    onEvent?: (event: AgentEvent) => void;
+  }): Promise<ReviewResult> {
+    const { provider, model, messages, tools, severityThreshold, onEvent } =
+      input;
+
+    messages.push({
+      role: "user",
+      content: [
+        "=== SYSTEM ===",
+        "Investigation limit reached. Call submit_review exactly once now.",
+        "Provide summary, confidence, investigatedFiles, and findings (may be []).",
+      ].join("\n"),
+    });
+
+    const forcedRequest: ChatRequest = {
+      model,
+      messages,
+      tools,
+      toolChoice: { type: "function", name: SUBMIT_TOOL_NAME },
+      temperature: 0,
+    };
+
+    try {
+      const forced = await provider.chat(forcedRequest);
+      const submitCall = forced.toolCalls.find(
+        (call) => call.name === SUBMIT_TOOL_NAME,
+      );
+      if (submitCall) {
+        const result = parseSubmitReviewArgs(
+          submitCall.arguments,
+          severityThreshold,
+        );
+        onEvent?.({ type: "completed", result });
+        return result;
+      }
+      if (forced.content) {
+        const parsed = parseReviewFromContent(
+          forced.content,
+          severityThreshold,
+        );
+        if (parsed) {
+          onEvent?.({ type: "completed", result: parsed });
+          return parsed;
+        }
+      }
+    } catch {
+      // fall through to prose-only attempt
+    }
+
+    // Last resort: ask for raw JSON with tools disabled.
     messages.push({
       role: "user",
       content:
-        "=== SYSTEM ===\nYou reached the investigation limit. Respond with ONLY a JSON object matching the submit_review schema (summary, confidence, investigatedFiles, findings). No tools.",
+        "=== SYSTEM ===\nRespond with ONLY a JSON object matching the submit_review schema (summary, confidence, investigatedFiles, findings). No tools.",
     });
 
     try {
@@ -287,6 +402,8 @@ export class AgentLoop {
       // fall through to empty safe result
     }
 
-    return EMPTY_SAFE_RESULT(`max iterations (${maxIterations}) exceeded`);
+    return EMPTY_SAFE_RESULT(
+      `max iterations exceeded without submit_review`,
+    );
   }
 }

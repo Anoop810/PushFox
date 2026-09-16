@@ -334,6 +334,8 @@ Tests mock the LLM. No real API calls in CI.
 | `GEMINI_API_KEY` | BYOK key for Gemini |
 | `GOOGLE_API_KEY` | Alias for Gemini BYOK key |
 | `OPENROUTER_API_KEY` | BYOK key for OpenRouter |
+| `OPENROUTER_SITE_URL` | Optional HTTP-Referer for OpenRouter rankings |
+| `OPENROUTER_APP_NAME` | Optional X-Title header (defaults to `PushFox`) |
 | `PUSHFOX_PROVIDER` | Provider override (`gemini` or `openrouter`) |
 | `PUSHFOX_MODEL` | Model override (e.g. `gemini-2.5-flash` or `google/gemini-3.6-flash`) |
 | `PUSHFOX_MAX_ITERATIONS` | Agent iteration cap |

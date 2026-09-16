@@ -82,10 +82,75 @@ describe("agent iteration limits", () => {
       },
     });
 
+    // investigation turns + forced submit_review attempt + optional prose JSON attempt
     expect(provider.calls).toBeGreaterThanOrEqual(3);
-    expect(provider.calls).toBeLessThanOrEqual(4); // loop + optional final
+    expect(provider.calls).toBeLessThanOrEqual(5);
     expect(result.findings).toEqual([]);
     expect(result.confidence).toBe("low");
+  });
+
+  it("forces submit_review tool choice on the final investigation turn", async () => {
+    const requests: ChatRequest[] = [];
+    const provider = new ScriptedProvider([
+      (req) => {
+        requests.push(req);
+        return {
+          content: null,
+          toolCalls: [
+            {
+              id: "1",
+              name: "list_files",
+              arguments: JSON.stringify({ path: "." }),
+            },
+          ],
+          finishReason: "tool_calls",
+        };
+      },
+      (req) => {
+        requests.push(req);
+        return {
+          content: null,
+          toolCalls: [
+            {
+              id: "2",
+              name: "submit_review",
+              arguments: JSON.stringify({
+                summary: "Forced finish",
+                confidence: "medium",
+                investigatedFiles: ["src/a.ts"],
+                findings: [],
+              }),
+            },
+          ],
+          finishReason: "tool_calls",
+        };
+      },
+    ]);
+
+    const loop = new AgentLoop();
+    const result = await loop.run({
+      provider,
+      model: "mock",
+      pack: minimalPack(),
+      maxIterations: 2,
+      severityThreshold: "medium",
+      toolContext: {
+        repoRoot: process.cwd(),
+        baseRef: "HEAD",
+        headRef: "HEAD",
+        ignorePaths: DEFAULT_CONFIG.paths.ignore,
+        maxOutputChars: 2000,
+      },
+    });
+
+    expect(result.summary).toBe("Forced finish");
+    expect(requests[1]?.toolChoice).toEqual({
+      type: "function",
+      name: "submit_review",
+    });
+    expect(requests[1]?.tools?.every((t) => t.name === "submit_review")).toBe(
+      true,
+    );
   });
 
   it("completes when submit_review is called", async () => {
