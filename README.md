@@ -49,7 +49,7 @@ Example:
 - **BYOK** — your API key, your provider account; keys are never hard-coded or persisted by PushFox
 - **Static Context Pack** — inspectable at `.pushfox/static-pack.json`
 - **Agent tools** — `get_diff`, `read_file`, `search_code`, `list_files`, `find_references`, `get_file_history`, `submit_review`
-- **Hard iteration limit** — investigation cannot run forever
+- **Hard iteration limit** — investigation cannot run forever; the final turn forces `submit_review`
 - **Structured findings** — severity, file, line, explanation, suggestion
 - **AGENTS.md support** — repository guidance included as *untrusted* context
 - **Prompt-injection hardening** — system instructions stay above repo/PR/tool text

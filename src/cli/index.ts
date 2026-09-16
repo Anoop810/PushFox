@@ -30,7 +30,7 @@ const printEvent = (event: AgentEvent, verbose: boolean): void => {
       break;
     case "completed":
       console.error(
-        `[agent] completed with ${event.result.findings.length} finding(s)`,
+        `[agent] completed with ${event.result.findings.length} finding(s); confidence=${event.result.confidence}`,
       );
       break;
     case "forced_stop":
