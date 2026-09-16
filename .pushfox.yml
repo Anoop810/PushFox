@@ -5,7 +5,7 @@ fallback_models:
   - openai/gpt-4o-mini
 
 review:
-  max_iterations: 3
+  max_iterations: 8
   severity_threshold: medium
 
 paths:
