@@ -3,6 +3,7 @@ import { SeveritySchema } from "../review/findings.js";
 
 export const ProviderNameSchema = z.enum([
   "gemini",
+  "openrouter",
   "anthropic",
   "xai",
 ]);

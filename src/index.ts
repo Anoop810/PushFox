@@ -19,6 +19,7 @@ export {
 export {
   createProvider,
   GeminiProvider,
+  OpenRouterProvider,
   type LLMProvider,
 } from "./providers/index.js";
 export {

@@ -107,7 +107,9 @@ program
 
       let provider;
       try {
-        provider = createProvider(config.provider);
+        provider = createProvider(config.provider, {
+          fallbackModels: config.fallbackModels,
+        });
       } catch (error) {
         console.error(
           error instanceof Error ? error.message : String(error),

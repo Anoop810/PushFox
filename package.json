@@ -42,7 +42,9 @@
     "github-actions",
     "static-pack",
     "agent",
-    "gemini"
+    "gemini",
+    "openrouter",
+    "github-actions"
   ],
   "license": "MIT",
   "repository": {

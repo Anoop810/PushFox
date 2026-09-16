@@ -5,13 +5,16 @@ author: PushFox
 inputs:
   gemini_api_key:
     description: Gemini API key (BYOK). Prefer secrets.GEMINI_API_KEY.
-    required: true
+    required: false
+  openrouter_api_key:
+    description: OpenRouter API key (BYOK). Prefer secrets.OPENROUTER_API_KEY.
+    required: false
   provider:
-    description: LLM provider (gemini)
+    description: LLM provider (gemini|openrouter)
     required: false
     default: gemini
   model:
-    description: Model name
+    description: Model name (provider-specific; OpenRouter uses vendor/model ids)
     required: false
     default: gemini-3.6-flash
   max_iterations:
@@ -57,6 +60,7 @@ runs:
       shell: bash
       env:
         GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+        OPENROUTER_API_KEY: ${{ inputs.openrouter_api_key }}
         GITHUB_TOKEN: ${{ github.token }}
         PUSHFOX_PROVIDER: ${{ inputs.provider }}
         PUSHFOX_MODEL: ${{ inputs.model }}

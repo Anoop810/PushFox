@@ -56,7 +56,7 @@ Example:
 - **Local CLI** — debug without GitHub
 - **GitHub Actions** — optional PR comment publishing
 - **No vector DB** — git + filesystem + `rg` only
-- **Gemini** — default (and currently only) LLM provider
+- **Gemini / OpenRouter** — BYOK LLM providers (`gemini` default; `openrouter` for multi-model routing)
 
 ---
 
@@ -76,7 +76,7 @@ npm link
 
 ## BYOK
 
-Set your Gemini key locally:
+### Gemini
 
 ```bash
 # Windows PowerShell
@@ -86,11 +86,23 @@ $env:GEMINI_API_KEY = "your-key"
 export GEMINI_API_KEY=your-key
 ```
 
-In GitHub Actions, store the key as a repository secret (`GEMINI_API_KEY`) and pass it into the workflow. PushFox only sends the key to the configured LLM provider.
+`GOOGLE_API_KEY` and `GOOGLE_GENERATIVE_AI_API_KEY` are also accepted as Gemini key aliases.
+
+### OpenRouter
+
+```bash
+# Windows PowerShell
+$env:OPENROUTER_API_KEY = "your-key"
+
+# macOS / Linux
+export OPENROUTER_API_KEY=your-key
+```
+
+Use OpenRouter model ids in `.pushfox.yml` (for example `google/gemini-3.6-flash` or `openai/gpt-4o-mini`).
+
+In GitHub Actions, store the key as a repository secret (`GEMINI_API_KEY` or `OPENROUTER_API_KEY`) and pass it into the workflow. PushFox only sends the key to the configured LLM provider.
 
 Never commit keys. Never put keys in `.pushfox.yml`.
-
-`GOOGLE_API_KEY` and `GOOGLE_GENERATIVE_AI_API_KEY` are also accepted as Gemini key aliases.
 
 ---
 
@@ -146,8 +158,11 @@ Empty reviews are valid when nothing meaningful is found.
 Optional `.pushfox.yml` in the repo root:
 
 ```yaml
-provider: gemini
-model: gemini-2.5-flash
+provider: openrouter
+model: google/gemini-3.6-flash
+fallback_models:
+  - google/gemini-3.5-flash
+  - openai/gpt-4o-mini
 
 review:
   max_iterations: 8
@@ -159,11 +174,18 @@ paths:
     - dist
 ```
 
+Gemini example:
+
+```yaml
+provider: gemini
+model: gemini-2.5-flash
+```
+
 ---
 
 ## GitHub Action setup
 
-1. Add repository secret `GEMINI_API_KEY`
+1. Add repository secret `OPENROUTER_API_KEY` (or `GEMINI_API_KEY` for Gemini)
 2. Add a workflow such as `.github/workflows/pushfox.yml`:
 
 ```yaml
@@ -193,8 +215,9 @@ jobs:
 
       - name: Run PushFox
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUSHFOX_PROVIDER: openrouter
           PUSHFOX_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PUSHFOX_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSHFOX_PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -214,7 +237,8 @@ V1 publishes a single structured PR comment (not inline line comments).
 
 | Provider | V1 status |
 |----------|-----------|
-| Gemini | Implemented (only supported provider) |
+| Gemini | Implemented |
+| OpenRouter | Implemented (OpenAI-compatible; any routed model) |
 | Anthropic | Interface stub |
 | xAI | Interface stub |
 
@@ -237,7 +261,7 @@ search read diff / history
    ↘    ↓    ↙
    Repository
         ↓
-   LLM Provider (BYOK Gemini)
+   LLM Provider (BYOK Gemini / OpenRouter)
         ↓
  Structured Findings → CLI / GitHub comment
 ```
@@ -249,7 +273,7 @@ src/
   agent/         # prompts + investigation loop
   static-pack/   # StaticPackBuilder + schema
   tools/         # repository tools
-  providers/     # LLMProvider + Gemini
+  providers/     # LLMProvider + Gemini + OpenRouter
   review/        # ReviewEngine + findings
   github/        # Action entry + comment publishing
   config/        # .pushfox.yml
@@ -309,8 +333,9 @@ Tests mock the LLM. No real API calls in CI.
 |----------|---------|
 | `GEMINI_API_KEY` | BYOK key for Gemini |
 | `GOOGLE_API_KEY` | Alias for Gemini BYOK key |
-| `PUSHFOX_PROVIDER` | Provider override (use `gemini`) |
-| `PUSHFOX_MODEL` | Model override (e.g. `gemini-2.5-flash`) |
+| `OPENROUTER_API_KEY` | BYOK key for OpenRouter |
+| `PUSHFOX_PROVIDER` | Provider override (`gemini` or `openrouter`) |
+| `PUSHFOX_MODEL` | Model override (e.g. `gemini-2.5-flash` or `google/gemini-3.6-flash`) |
 | `PUSHFOX_MAX_ITERATIONS` | Agent iteration cap |
 | `PUSHFOX_SEVERITY_THRESHOLD` | Minimum reported severity |
 | `PUSHFOX_PUBLISH` | `false` to skip GitHub comment |
@@ -320,7 +345,7 @@ Tests mock the LLM. No real API calls in CI.
 
 ## Roadmap (V2+)
 
-- Anthropic / xAI providers
+- Native Anthropic / xAI providers
 - Inline GitHub review comments
 - Parallel tool calls + smarter pack budgeting
 - Incremental review on push (review only new commits)

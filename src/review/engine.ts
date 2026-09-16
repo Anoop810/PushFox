@@ -53,7 +53,9 @@ export class ReviewEngine {
 
     const provider =
       input.provider ??
-      createProvider(config.provider);
+      createProvider(config.provider, {
+        fallbackModels: config.fallbackModels,
+      });
 
     const agent = new AgentLoop();
     const review = await agent.run({

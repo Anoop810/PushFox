@@ -63,11 +63,14 @@ const main = async (): Promise<void> => {
   });
 
   const explicitKey =
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-    process.env.PUSHFOX_GEMINI_API_KEY ||
-    process.env.PRNERD_GEMINI_API_KEY;
+    config.provider === "openrouter"
+      ? process.env.OPENROUTER_API_KEY ||
+        process.env.PUSHFOX_OPENROUTER_API_KEY
+      : process.env.GEMINI_API_KEY ||
+        process.env.GOOGLE_API_KEY ||
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+        process.env.PUSHFOX_GEMINI_API_KEY ||
+        process.env.PRNERD_GEMINI_API_KEY;
 
   let provider;
   try {
@@ -87,7 +90,9 @@ const main = async (): Promise<void> => {
     throw new Error(
       error instanceof Error
         ? error.message
-        : "BYOK: set GEMINI_API_KEY secret for Gemini reviews",
+        : config.provider === "openrouter"
+          ? "BYOK: set OPENROUTER_API_KEY secret for OpenRouter reviews"
+          : "BYOK: set GEMINI_API_KEY secret for Gemini reviews",
     );
   }
   const engine = new ReviewEngine();

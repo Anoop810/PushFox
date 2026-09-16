@@ -1,8 +1,8 @@
-provider: gemini
-model: gemini-2.0-flash
+provider: openrouter
+model: google/gemini-3.6-flash
 fallback_models:
-  - gemini-flash-latest
-  - gemini-3.6-flash
+  - google/gemini-3.5-flash
+  - openai/gpt-4o-mini
 
 review:
   max_iterations: 3

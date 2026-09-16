@@ -25,7 +25,7 @@ const DEFAULT_RETRY_MAX_MS = 60_000;
 const sanitizeApiKey = (value: string | undefined): string | undefined => {
   if (!value) return undefined;
   // Secrets pasted into GitHub often include trailing/CRLF newlines, which break HTTP headers.
-  const cleaned = value.replace(/[\r\n\u0000]/g, "").trim();
+  const cleaned = value.replace(/[\r\n]/g, "").split("\0").join("").trim();
   return cleaned.length > 0 ? cleaned : undefined;
 };
 
