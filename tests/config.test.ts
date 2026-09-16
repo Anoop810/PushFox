@@ -50,6 +50,32 @@ describe("configuration loading", () => {
     }
   });
 
+  it("loads openrouter provider and model ids from yaml", () => {
+    const dir = join(tmpdir(), `pushfox-config-or-${Date.now()}`);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, ".pushfox.yml"),
+      [
+        "provider: openrouter",
+        "model: google/gemini-3.6-flash",
+        "fallback_models:",
+        "  - openai/gpt-4o-mini",
+        "review:",
+        "  max_iterations: 4",
+      ].join("\n"),
+      "utf8",
+    );
+    try {
+      const config = loadConfig(dir);
+      expect(config.provider).toBe("openrouter");
+      expect(config.model).toBe("google/gemini-3.6-flash");
+      expect(config.fallbackModels).toEqual(["openai/gpt-4o-mini"]);
+      expect(config.review.maxIterations).toBe(4);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects invalid severity", () => {
     expect(() =>
       ConfigSchema.parse({ review: { severityThreshold: "ultra" } }),
